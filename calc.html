@@ -2,6 +2,9 @@
 <html lang="cs">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Registrace – Kalkulačka</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -134,7 +137,8 @@ const translations = {
     vs: "VS (telefonní číslo):",
     message: "Registrace",
     error: "Musí obsahovat alespoň 6 číslic",
-    bankFeesNote: ""
+    bankFeesNote: "",
+    beneficiary: "Příjemce:"
   },
   en: {
     title: "Registration – Calculator",
@@ -151,7 +155,8 @@ const translations = {
     vs: "Reference (phone):",
     message: "Registration",
     error: "Must contain at least 6 digits",
-    bankFeesNote: "Please ensure that you set up the payment in such way that you pay all bank fees and the full amount is credited to our account. Otherwise, we may have issues locating your payment and you will need to pay any difference at checkin."
+    bankFeesNote: "Please ensure that you set up the payment in such way that you pay all bank fees and the full amount is credited to our account. Otherwise, we may have issues locating your payment and you will need to pay any difference at checkin.",
+    beneficiary: "Beneficiary:"
   }
 };
 
@@ -167,9 +172,13 @@ function getUrlParameter(name) {
 }
 
 // Load configuration and set language
-fetch('config.json')
-  .then(response => response.json())
+fetch('config.json?' + new Date().getTime())
+  .then(response => {
+    console.log('Config fetch response:', response);
+    return response.json();
+  })
   .then(data => {
+    console.log('Loaded config data:', data);
     config = data;
     // Get language from URL parameter
     const urlLang = getUrlParameter('lang');
@@ -258,15 +267,21 @@ function calculate() {
   if (currency === 'CZK') {
     const bankDetails = config.payment.bankDetails;
     const czkDetails = bankDetails.CZK;
+    console.log('Config values:', {
+      iban: czkDetails.iban,
+      accountOwner: bankDetails.accountOwner
+    });
+    
     resultHTML += `
       <strong>${t.account}</strong> ${czkDetails.accountNumber}/${czkDetails.bankCode}<br>
       <strong>${t.vs}</strong> ${phone}<br>
-      <strong>Příjemce:</strong> ${bankDetails.accountOwner}<br>
+      <strong>${t.beneficiary}</strong> ${bankDetails.accountOwner}<br>
     `;
     // Format amount with 2 decimal places for CZK
     const formattedAmount = total.toFixed(2);
-    // Use IBAN format without BIC
-    qrData = `SPD*1.0*ACC:${czkDetails.iban}*AM:${formattedAmount}*CC:CZK*X-VS:${phone}*MSG:${t.message}`;
+    // Use IBAN format for Czech payments
+    qrData = `SPD*1.0*ACC:${czkDetails.iban}*AM:${formattedAmount}*CC:CZK*X-VS:${phone}*MSG:${t.message}*X-NAME:${bankDetails.accountOwner}`;
+    console.log('Generated QR data:', qrData);
   } else if (currency === 'EUR') {
     const bankDetails = config.payment.bankDetails;
     const eurDetails = bankDetails.EUR;
@@ -275,7 +290,7 @@ function calculate() {
       <strong>${t.iban}</strong> ${eurDetails.iban}<br>
       <strong>${t.bic}</strong> ${eurDetails.bic}<br>
       <strong>${t.vs}</strong> ${phone}<br>
-      <strong>Příjemce:</strong> ${bankDetails.accountOwner}<br>
+      <strong>${t.beneficiary}</strong> ${bankDetails.accountOwner}<br>
     `;
     // Format amount with 2 decimal places for EUR
     const formattedAmount = total.toFixed(2);
