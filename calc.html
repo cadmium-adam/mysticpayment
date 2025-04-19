@@ -5,39 +5,113 @@
   <title>Registrace – Kalkulačka</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
-    label, select, input { display: block; margin: 10px 0; }
-    #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
-    #qrCode { margin-top: 10px; }
-    #qrCode img { max-width: 200px; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      padding: 20px; 
+      max-width: 600px; 
+      margin: auto;
+      color: #333;
+      line-height: 1.6;
+    }
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .form-group {
+      display: flex;
+      align-items: center;
+      margin: 15px 0;
+      gap: 10px;
+    }
+    .form-group label {
+      min-width: 150px;
+      font-weight: 500;
+    }
+    select, input[type="text"] {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      flex: 1;
+    }
+    input[type="checkbox"] {
+      margin-right: 5px;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 20px 0;
+      width: 100%;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    #result strong {
+      color: #2c3e50;
+      min-width: 150px;
+      display: inline-block;
+    }
+    #qrCode {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #qrCode img {
+      max-width: 200px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      background-color: white;
+    }
+    .phone-note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
 
 <h2 id="title">Registrace – Kalkulačka</h2>
 
-<label for="language">Jazyk / Language:</label>
-<select id="language" onchange="setLanguage()">
-  <option value="cs">Čeština</option>
-  <option value="en">English</option>
-</select>
+<div class="form-group">
+  <label id="labelContests" for="contests">Počet soutěží:</label>
+  <select id="contests">
+    <option value="1">1 contest</option>
+    <option value="2">2 contests</option>
+  </select>
+</div>
 
-<label id="labelContests" for="contests">Počet soutěží:</label>
-<select id="contests">
-  <option value="1">1 contest</option>
-  <option value="2">2 contests</option>
-</select>
+<div class="form-group">
+  <label><input type="checkbox" id="guest"> <span id="labelGuest">Doprovod (guest)</span></label>
+</div>
 
-<label><input type="checkbox" id="guest"> <span id="labelGuest">Doprovod (guest)</span></label>
+<div class="form-group">
+  <label id="labelCurrency" for="currency">Měna:</label>
+  <select id="currency">
+    <option value="CZK">CZK</option>
+    <option value="EUR">EUR</option>
+  </select>
+</div>
 
-<label id="labelCurrency" for="currency">Měna:</label>
-<select id="currency">
-  <option value="CZK">CZK</option>
-  <option value="EUR">EUR</option>
-</select>
-
-<label id="labelPhone" for="phone">Telefonní číslo (bez +):</label>
-<input type="text" id="phone" placeholder="např. 420123456789" />
+<div class="form-group">
+  <label id="labelPhone" for="phone">Telefonní číslo (bez +):</label>
+  <input type="text" id="phone" placeholder="např. 420123456789" />
+</div>
 
 <button onclick="calculate()" id="btnCalc">Spočítat</button>
 
@@ -51,13 +125,16 @@ const translations = {
     guest: "Doprovod (guest)",
     currency: "Měna:",
     phone: "Telefonní číslo (bez +):",
+    phoneNote: "Zadejte telefonní číslo použité při registraci v LiveHeats bez +, pouze číslice, bez mezer.",
     calculate: "Spočítat",
     total: "Celková cena:",
     account: "Platba na účet:",
     iban: "IBAN:",
     bic: "BIC:",
     vs: "VS (telefonní číslo):",
-    message: "Registrace"
+    message: "Registrace",
+    error: "Musí obsahovat alespoň 6 číslic",
+    bankFeesNote: ""
   },
   en: {
     title: "Registration – Calculator",
@@ -65,24 +142,40 @@ const translations = {
     guest: "Guest",
     currency: "Currency:",
     phone: "Phone number (no +):",
+    phoneNote: "Enter the phone number used in LiveHeats event registration without the + sign, numbers only, no spaces.",
     calculate: "Calculate",
     total: "Total price:",
     account: "Payment to account:",
     iban: "IBAN:",
     bic: "BIC:",
     vs: "Reference (phone):",
-    message: "Registration"
+    message: "Registration",
+    error: "Must contain at least 6 digits",
+    bankFeesNote: "Please ensure that you set up the payment in such way that you pay all bank fees and the full amount is credited to our account. Otherwise, we may have issues locating your payment and you will need to pay any difference at checkin."
   }
 };
 
 let currentLang = "cs";
 let config = null;
 
-// Load configuration
+// Function to get URL parameters
+function getUrlParameter(name) {
+  name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+  const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+  const results = regex.exec(location.search);
+  return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+}
+
+// Load configuration and set language
 fetch('config.json')
   .then(response => response.json())
   .then(data => {
     config = data;
+    // Get language from URL parameter
+    const urlLang = getUrlParameter('lang');
+    if (urlLang === 'cz' || urlLang === 'en') {
+      currentLang = urlLang === 'cz' ? 'cs' : 'en';
+    }
     setLanguage(); // Initialize after config is loaded
   })
   .catch(error => {
@@ -91,7 +184,6 @@ fetch('config.json')
   });
 
 function setLanguage() {
-  currentLang = document.getElementById("language").value;
   const t = translations[currentLang];
   document.getElementById("title").textContent = t.title;
   document.getElementById("labelContests").textContent = t.contests;
@@ -99,12 +191,28 @@ function setLanguage() {
   document.getElementById("labelCurrency").textContent = t.currency;
   document.getElementById("labelPhone").textContent = t.phone;
   document.getElementById("btnCalc").textContent = t.calculate;
+  // Update phone note
+  const phoneNote = document.getElementById('phoneNote');
+  if (phoneNote) {
+    phoneNote.textContent = t.phoneNote;
+  } else {
+    const note = document.createElement('div');
+    note.id = 'phoneNote';
+    note.className = 'phone-note';
+    note.textContent = t.phoneNote;
+    document.getElementById('phone').parentNode.insertBefore(note, document.getElementById('phone').nextSibling);
+  }
+  // Clear any existing error messages
+  const errorSpan = document.getElementById('phoneError');
+  if (errorSpan) {
+    errorSpan.remove();
+  }
   if (config) calculate();
 }
 
 function calculate() {
   if (!config) {
-    document.getElementById('result').innerHTML = '<span style="color:red">Configuration not loaded</span>';
+    document.getElementById('result').innerHTML = '<span style="color:red">Error loading configuration</span>';
     return;
   }
 
@@ -114,8 +222,20 @@ function calculate() {
   const phone = document.getElementById('phone').value.replace(/\D/g, ''); // číslice only
   const t = translations[currentLang];
 
+  // Clear any existing error messages
+  const errorSpan = document.getElementById('phoneError');
+  if (errorSpan) {
+    errorSpan.remove();
+  }
+
   if (phone.length < 6) {
-    document.getElementById('result').innerHTML = `<span style="color:red">${t.phone} – musí obsahovat alespoň 6 číslic.</span>`;
+    const phoneLabel = document.getElementById('labelPhone');
+    const errorSpan = document.createElement('span');
+    errorSpan.id = 'phoneError';
+    errorSpan.style.color = 'red';
+    errorSpan.style.marginLeft = '10px';
+    errorSpan.textContent = t.error;
+    phoneLabel.appendChild(errorSpan);
     return;
   }
 
@@ -160,11 +280,15 @@ function calculate() {
              `${bankDetails.accountOwner}\n` + // Beneficiary Name
              `${eurDetails.iban}\n` + // IBAN
              `EUR${formattedAmount}\n` + // Amount with currency
-             `PUR/VS${phone}\n` + // Purpose
+             `\n` + // Empty line
+             `\n` + // Empty line
              `VS:${phone}`; // Reference
   }
 
   resultHTML += '<div id="qrCode"></div>';
+  if (currentLang === 'en') {
+    resultHTML += `<div style="color: red; margin-top: 20px; font-size: 14px;">${t.bankFeesNote}</div>`;
+  }
   document.getElementById('result').innerHTML = resultHTML;
   
   // Generate QR code
