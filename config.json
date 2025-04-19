@@ -1,0 +1,29 @@
+{
+  "payment": {
+    "bankDetails": {
+      "accountOwner": "Mystic Payment s.r.o.",
+      "CZK": {
+        "accountNumber": "264569807",
+        "bankCode": "0300",
+        "iban": "CZ0303000000000264569807"
+      },
+      "EUR": {
+        "iban": "CZ3303000000000264569807",
+        "bic": "CEKOCZPP",
+        "purpose": "Mystic Payment Registration"
+      }
+    },
+    "prices": {
+      "CZK": {
+        "1": 2700,
+        "2": 3300,
+        "guest": 800
+      },
+      "EUR": {
+        "1": 110,
+        "2": 130,
+        "guest": 30
+      }
+    }
+  }
+} 

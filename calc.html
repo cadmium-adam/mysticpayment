@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrace – Kalkulačka</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    label, select, input { display: block; margin: 10px 0; }
+    #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+    #qrCode { margin-top: 10px; }
+    #qrCode img { max-width: 200px; }
+  </style>
+</head>
+<body>
+
+<h2 id="title">Registrace – Kalkulačka</h2>
+
+<label for="language">Jazyk / Language:</label>
+<select id="language" onchange="setLanguage()">
+  <option value="cs">Čeština</option>
+  <option value="en">English</option>
+</select>
+
+<label id="labelContests" for="contests">Počet soutěží:</label>
+<select id="contests">
+  <option value="1">1 contest</option>
+  <option value="2">2 contests</option>
+</select>
+
+<label><input type="checkbox" id="guest"> <span id="labelGuest">Doprovod (guest)</span></label>
+
+<label id="labelCurrency" for="currency">Měna:</label>
+<select id="currency">
+  <option value="CZK">CZK</option>
+  <option value="EUR">EUR</option>
+</select>
+
+<label id="labelPhone" for="phone">Telefonní číslo (bez +):</label>
+<input type="text" id="phone" placeholder="např. 420123456789" />
+
+<button onclick="calculate()" id="btnCalc">Spočítat</button>
+
+<div id="result"></div>
+
+<script>
+const translations = {
+  cs: {
+    title: "Registrace – Kalkulačka",
+    contests: "Počet soutěží:",
+    guest: "Doprovod (guest)",
+    currency: "Měna:",
+    phone: "Telefonní číslo (bez +):",
+    calculate: "Spočítat",
+    total: "Celková cena:",
+    account: "Platba na účet:",
+    iban: "IBAN:",
+    bic: "BIC:",
+    vs: "VS (telefonní číslo):",
+    message: "Registrace"
+  },
+  en: {
+    title: "Registration – Calculator",
+    contests: "Number of contests:",
+    guest: "Guest",
+    currency: "Currency:",
+    phone: "Phone number (no +):",
+    calculate: "Calculate",
+    total: "Total price:",
+    account: "Payment to account:",
+    iban: "IBAN:",
+    bic: "BIC:",
+    vs: "Reference (phone):",
+    message: "Registration"
+  }
+};
+
+let currentLang = "cs";
+let config = null;
+
+// Load configuration
+fetch('config.json')
+  .then(response => response.json())
+  .then(data => {
+    config = data;
+    setLanguage(); // Initialize after config is loaded
+  })
+  .catch(error => {
+    console.error('Error loading configuration:', error);
+    document.getElementById('result').innerHTML = '<span style="color:red">Error loading configuration</span>';
+  });
+
+function setLanguage() {
+  currentLang = document.getElementById("language").value;
+  const t = translations[currentLang];
+  document.getElementById("title").textContent = t.title;
+  document.getElementById("labelContests").textContent = t.contests;
+  document.getElementById("labelGuest").textContent = t.guest;
+  document.getElementById("labelCurrency").textContent = t.currency;
+  document.getElementById("labelPhone").textContent = t.phone;
+  document.getElementById("btnCalc").textContent = t.calculate;
+  if (config) calculate();
+}
+
+function calculate() {
+  if (!config) {
+    document.getElementById('result').innerHTML = '<span style="color:red">Configuration not loaded</span>';
+    return;
+  }
+
+  const contests = parseInt(document.getElementById('contests').value);
+  const isGuest = document.getElementById('guest').checked;
+  const currency = document.getElementById('currency').value;
+  const phone = document.getElementById('phone').value.replace(/\D/g, ''); // číslice only
+  const t = translations[currentLang];
+
+  if (phone.length < 6) {
+    document.getElementById('result').innerHTML = `<span style="color:red">${t.phone} – musí obsahovat alespoň 6 číslic.</span>`;
+    return;
+  }
+
+  const prices = config.payment.prices[currency];
+  const contestPrice = prices[contests];
+  const guestPrice = isGuest ? prices.guest : 0;
+  const total = contestPrice + guestPrice;
+
+  let resultHTML = `<strong>${t.total}</strong> ${total} ${currency}<br><br>`;
+  let qrData = '';
+
+  if (currency === 'CZK') {
+    const bankDetails = config.payment.bankDetails;
+    const czkDetails = bankDetails.CZK;
+    resultHTML += `
+      <strong>${t.account}</strong> ${czkDetails.accountNumber}/${czkDetails.bankCode}<br>
+      <strong>${t.vs}</strong> ${phone}<br>
+      <strong>Příjemce:</strong> ${bankDetails.accountOwner}<br>
+    `;
+    // Format amount with 2 decimal places for CZK
+    const formattedAmount = total.toFixed(2);
+    // Use IBAN format without BIC
+    qrData = `SPD*1.0*ACC:${czkDetails.iban}*AM:${formattedAmount}*CC:CZK*X-VS:${phone}*MSG:${t.message}`;
+  } else if (currency === 'EUR') {
+    const bankDetails = config.payment.bankDetails;
+    const eurDetails = bankDetails.EUR;
+    
+    resultHTML += `
+      <strong>${t.iban}</strong> ${eurDetails.iban}<br>
+      <strong>${t.bic}</strong> ${eurDetails.bic}<br>
+      <strong>${t.vs}</strong> ${phone}<br>
+      <strong>Příjemce:</strong> ${bankDetails.accountOwner}<br>
+    `;
+    // Format amount with 2 decimal places for EUR
+    const formattedAmount = total.toFixed(2);
+    // SEPA QR code
+    qrData = `BCD\n` + // Service Tag
+             `001\n` + // Version
+             `1\n` +   // Character Set (1 = UTF-8)
+             `SCT\n` + // Identification Code (SEPA Credit Transfer)
+             `${eurDetails.bic}\n` + // BIC
+             `${bankDetails.accountOwner}\n` + // Beneficiary Name
+             `${eurDetails.iban}\n` + // IBAN
+             `EUR${formattedAmount}\n` + // Amount with currency
+             `PUR/VS${phone}\n` + // Purpose
+             `VS:${phone}`; // Reference
+  }
+
+  resultHTML += '<div id="qrCode"></div>';
+  document.getElementById('result').innerHTML = resultHTML;
+  
+  // Generate QR code
+  try {
+    const qrCodeElement = document.getElementById('qrCode');
+    qrCodeElement.innerHTML = ''; // Clear previous QR code
+    new QRCode(qrCodeElement, {
+      text: qrData,
+      width: 200,
+      height: 200,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  } catch (error) {
+    console.error('QR code generation failed:', error);
+    document.getElementById('qrCode').innerHTML = '<span style="color:red">QR code generation failed</span>';
+  }
+}
+</script>
+
+</body>
+</html>
