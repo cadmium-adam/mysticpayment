@@ -210,6 +210,14 @@ function setLanguage() {
   if (config) calculate();
 }
 
+// Add event listener for Enter key in phone field
+document.getElementById('phone').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    calculate();
+  }
+});
+
 function calculate() {
   if (!config) {
     document.getElementById('result').innerHTML = '<span style="color:red">Error loading configuration</span>';

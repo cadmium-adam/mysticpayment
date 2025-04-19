@@ -1,15 +1,15 @@
 {
   "payment": {
     "bankDetails": {
-      "accountOwner": "Mystic Payment s.r.o.",
+      "accountOwner": "	MYSTIC SKATEPARK ŠTVANICE z.s.",
       "CZK": {
-        "accountNumber": "264569807",
-        "bankCode": "0300",
-        "iban": "CZ0303000000000264569807"
+        "accountNumber": "2300895175",
+        "bankCode": "2010",
+        "iban": "CZ7620100000002300895175"
       },
       "EUR": {
-        "iban": "CZ3303000000000264569807",
-        "bic": "CEKOCZPP",
+        "iban": "CZ6220100000002200992023",
+        "bic": "FIOBCZPPXXX",
         "purpose": "Mystic Payment Registration"
       }
     },
