@@ -6,7 +6,6 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Registrace – Kalkulačka</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     body { 
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -121,6 +120,37 @@
 <div id="result"></div>
 
 <script>
+// Configuration data
+const config = {
+  payment: {
+    bankDetails: {
+      accountOwner: "MYSTIC SKATEPARK STVANICE z.s.",
+      CZK: {
+        accountNumber: "2300895175",
+        bankCode: "2010",
+        iban: "CZ7620100000002300895175"
+      },
+      EUR: {
+        iban: "CZ6220100000002200992023",
+        bic: "FIOBCZPPXXX",
+        purpose: "Mystic Payment Registration"
+      }
+    },
+    prices: {
+      CZK: {
+        "1": 2700,
+        "2": 3300,
+        guest: 800
+      },
+      EUR: {
+        "1": 110,
+        "2": 130,
+        guest: 30
+      }
+    }
+  }
+};
+
 const translations = {
   cs: {
     title: "Registrace – Kalkulačka",
@@ -161,7 +191,6 @@ const translations = {
 };
 
 let currentLang = "cs";
-let config = null;
 
 // Function to get URL parameters
 function getUrlParameter(name) {
@@ -171,26 +200,12 @@ function getUrlParameter(name) {
   return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
 }
 
-// Load configuration and set language
-fetch('config.json?' + new Date().getTime())
-  .then(response => {
-    console.log('Config fetch response:', response);
-    return response.json();
-  })
-  .then(data => {
-    console.log('Loaded config data:', data);
-    config = data;
-    // Get language from URL parameter
-    const urlLang = getUrlParameter('lang');
-    if (urlLang === 'cz' || urlLang === 'en') {
-      currentLang = urlLang === 'cz' ? 'cs' : 'en';
-    }
-    setLanguage(); // Initialize after config is loaded
-  })
-  .catch(error => {
-    console.error('Error loading configuration:', error);
-    document.getElementById('result').innerHTML = '<span style="color:red">Error loading configuration</span>';
-  });
+// Set language based on URL parameter
+const urlLang = getUrlParameter('lang');
+if (urlLang === 'cz' || urlLang === 'en') {
+  currentLang = urlLang === 'cz' ? 'cs' : 'en';
+}
+setLanguage();
 
 function setLanguage() {
   const t = translations[currentLang];
@@ -200,6 +215,7 @@ function setLanguage() {
   document.getElementById("labelCurrency").textContent = t.currency;
   document.getElementById("labelPhone").textContent = t.phone;
   document.getElementById("btnCalc").textContent = t.calculate;
+  
   // Update phone note
   const phoneNote = document.getElementById('phoneNote');
   if (phoneNote) {
@@ -211,12 +227,14 @@ function setLanguage() {
     note.textContent = t.phoneNote;
     document.getElementById('phone').parentNode.insertBefore(note, document.getElementById('phone').nextSibling);
   }
+  
   // Clear any existing error messages
   const errorSpan = document.getElementById('phoneError');
   if (errorSpan) {
     errorSpan.remove();
   }
-  if (config) calculate();
+  
+  calculate();
 }
 
 // Add event listener for Enter key in phone field
@@ -228,15 +246,10 @@ document.getElementById('phone').addEventListener('keypress', function(e) {
 });
 
 function calculate() {
-  if (!config) {
-    document.getElementById('result').innerHTML = '<span style="color:red">Error loading configuration</span>';
-    return;
-  }
-
   const contests = parseInt(document.getElementById('contests').value);
   const isGuest = document.getElementById('guest').checked;
   const currency = document.getElementById('currency').value;
-  const phone = document.getElementById('phone').value.replace(/\D/g, ''); // číslice only
+  const phone = document.getElementById('phone').value.replace(/\D/g, ''); // digits only
   const t = translations[currentLang];
 
   // Clear any existing error messages
@@ -267,10 +280,6 @@ function calculate() {
   if (currency === 'CZK') {
     const bankDetails = config.payment.bankDetails;
     const czkDetails = bankDetails.CZK;
-    console.log('Config values:', {
-      iban: czkDetails.iban,
-      accountOwner: bankDetails.accountOwner
-    });
     
     resultHTML += `
       <strong>${t.account}</strong> ${czkDetails.accountNumber}/${czkDetails.bankCode}<br>
@@ -281,7 +290,6 @@ function calculate() {
     const formattedAmount = total.toFixed(2);
     // Use IBAN format for Czech payments
     qrData = `SPD*1.0*ACC:${czkDetails.iban}*AM:${formattedAmount}*CC:CZK*X-VS:${phone}*MSG:${t.message}*X-NAME:${bankDetails.accountOwner}`;
-    console.log('Generated QR data:', qrData);
   } else if (currency === 'EUR') {
     const bankDetails = config.payment.bankDetails;
     const eurDetails = bankDetails.EUR;
@@ -314,22 +322,10 @@ function calculate() {
   }
   document.getElementById('result').innerHTML = resultHTML;
   
-  // Generate QR code
-  try {
-    const qrCodeElement = document.getElementById('qrCode');
-    qrCodeElement.innerHTML = ''; // Clear previous QR code
-    new QRCode(qrCodeElement, {
-      text: qrData,
-      width: 200,
-      height: 200,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.H
-    });
-  } catch (error) {
-    console.error('QR code generation failed:', error);
-    document.getElementById('qrCode').innerHTML = '<span style="color:red">QR code generation failed</span>';
-  }
+  // Generate QR code using QRServer API
+  const qrCodeElement = document.getElementById('qrCode');
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}&format=svg`;
+  qrCodeElement.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 200px; height: auto;">`;
 }
 </script>
 
